@@ -22,7 +22,7 @@ class CyberSourceBaseException(Exception):
         return self.__unicode__()
 
 
-class CyberScourceError(CyberSourceBaseException):
+class CyberSourceError(CyberSourceBaseException):
     pass
 
 
@@ -189,8 +189,9 @@ class Processor(object):
         expirationYear = card_details.get('exp_year')
         cvNumber = card_details.get('cvv')
 
-        # if not all([fullName, accountNumber, expirationMonth, expirationYear, cvNumber]):
-        #     raise CyberScourceError('', 'Not all credit card info was gathered')
+        if not all([accountNumber, expirationMonth, expirationYear, cvNumber]):
+            raise CyberSourceError(
+                '', 'Not all credit card info was gathered')
 
         self.card = self.client.factory.create('ns0:Card')
 
@@ -269,9 +270,8 @@ class Processor(object):
 
     def check_response_for_cybersource_error(self):
         if self.response.reasonCode != 100:
-            print(self.response)
-            raise CyberScourceError(self.response.reasonCode,
-                                    CYBERSOURCE_RESPONSES.get(str(self.response.reasonCode), 'Unknown Failure'))
+            raise CyberSourceError(self.response.reasonCode,
+                                   CYBERSOURCE_RESPONSES.get(str(self.response.reasonCode), 'Unknown Failure'))
 
     def charge_card(self, payload):
         self.check = None
@@ -283,4 +283,4 @@ class Processor(object):
         self.run_transaction()
 
         self.check_response_for_cybersource_error()
-        print(self.response)
+        return self.response
