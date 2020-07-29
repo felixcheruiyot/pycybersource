@@ -13,7 +13,6 @@ payload["card"]['cvv'] = '123'
 payload["charge"]['currency'] = 'USD'
 payload["charge"]['total'] = 100.50
 
-payload["billing"]['title'] = 'Mr.'
 payload["billing"]['first_name'] = 'Felix'
 payload["billing"]['last_name'] = 'Cheruiyot'
 payload["billing"]['email'] = 'felix@intasend.com'
