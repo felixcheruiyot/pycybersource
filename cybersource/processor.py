@@ -75,26 +75,32 @@ CYBERSOURCE_RESPONSES = {
 
 class Processor(object):
 
-    def __init__(self, *args, **kwargs):
+    def __init__(self, merchantid, password, test=False):
         # Test server
-        self.client = Client('https://ics2wstest.ic3.com/commerce/1.x/transactionProcessor/CyberSourceTransaction_1.85.wsdl')
+        service_url = 'https://ics2wsa.ic3.com/commerce/1.x/transactionProcessor/CyberSourceTransaction_1.166.wsdl'
+        if test:
+            service_url = 'https://ics2wstesta.ic3.com/commerce/1.x/transactionProcessor/CyberSourceTransaction_1.166.wsdl'
+        self.client = Client(service_url)
 
-        self.password = '6CrXkQJxiZ0tKn2GCwpG4nSQ/fyQ9Z0tajLq01FsTGv4eV1cTivxsR1jdMD4ddOM/NBHdOKGQ7Y03LRMS3lwgavgAQBNCuLSOrQh0nc3bQ8YMgCs6W/SKw+r8MVC0Thbc4kVW6250Xl+mWoJcVNxkumxSJTkUoVUtRMdISwfcFynkPmUo8gJtcgmeYYLCkbidJD9/JD1nS1qMurTUWxMa/h5XVxOK/GxHWN0wPh104z80Ed04oZDtjTctExLeXCBq+ABAE0K4tI6tCHSdzdtDxgyAKzpb9IrD6vwxULROFtziRVbrbnReX6ZaglxU3GS6bFIlORShVS1Ex0hLB9wXA=='
-        self.merchantid = 'cybersource_proame'
+        self.password = password
+        self.merchantid = merchantid
 
     def create_headers(self):
-        wssens = ('wsse', 'http://docs.oasis-open.org/wss/2004/01/oasis-200401-wss-wssecurity-secext-1.0.xsd')
+        wssens = (
+            'wsse', 'http://docs.oasis-open.org/wss/2004/01/oasis-200401-wss-wssecurity-secext-1.0.xsd')
         mustAttribute = Attribute('SOAP-ENV:mustUnderstand', '1')
 
         security = Element('Security', ns=wssens)
         security.append(mustAttribute)
-        security.append(Attribute('xmlns:wsse', 'http://docs.oasis-open.org/wss/2004/01/oasis-200401-wss-wssecurity-secext-1.0.xsd'))
+        security.append(Attribute(
+            'xmlns:wsse', 'http://docs.oasis-open.org/wss/2004/01/oasis-200401-wss-wssecurity-secext-1.0.xsd'))
 
         usernametoken = Element('UsernameToken', ns=wssens)
 
         username = Element('Username', ns=wssens).setText(self.merchantid)
 
-        passwordType = Attribute('Type', 'http://docs.oasis-open.org/wss/2004/01/oasis-200401-wssusername-token-profile-1.0#PasswordText')
+        passwordType = Attribute(
+            'Type', 'http://docs.oasis-open.org/wss/2004/01/oasis-200401-wssusername-token-profile-1.0#PasswordText')
         password = Element('Password', ns=wssens).setText(self.password)
         password.append(passwordType)
 
@@ -122,18 +128,16 @@ class Processor(object):
                 options['card'] = self.card
                 options['ccAuthService'] = ccAuthService
 
-            if getattr(self, 'check', None):
-                ecDebitService = self.client.factory.create('ns0:ecDebitService')
-                ecDebitService._run = 'true'
-
-                options['check'] = self.check
-                options['ecDebitService'] = ecDebitService
+                businessRules = self.client.factory.create('ns0:businessRules')
+                businessRules.ignoreAVSResult = True
+                businessRules.ignoreCVResult = True
+                options["businessRules"] = businessRules
 
             self.response = self.client.service.runTransaction(**options)
         except suds.WebFault:
             raise SchemaValidationError()
 
-    def payment_amount(self, **kwargs):
+    def payment_amount(self, charge):
         '''
             currency = None
             discountAmount = None
@@ -157,18 +161,14 @@ class Processor(object):
             additionalAmount4 = None
             serviceFeeAmount = None
         '''
-
-        kwargs['currency'] = 'USD'
-        kwargs['total'] = 12.50
-
-        currency = kwargs.get('currency')
-        grandTotalAmount = kwargs.get('total')
+        currency = charge.get('currency')
+        grandTotalAmount = charge.get('total')
 
         self.payment = self.client.factory.create('ns0:PurchaseTotals')
         self.payment.currency = currency
         self.payment.grandTotalAmount = grandTotalAmount
 
-    def set_card_info(self, **kwargs):
+    def set_card_info(self, card_details):
         '''
             fullName = None
             accountNumber = None
@@ -184,17 +184,10 @@ class Processor(object):
             accountEncoderID = None
             bin = None
         '''
-
-        # Test stuff
-        kwargs['account_number'] = '4111111111111111'
-        kwargs['exp_month'] = '05'
-        kwargs['exp_year'] = '2015'
-        kwargs['cvv'] = '123'
-
-        accountNumber = kwargs.get('account_number')
-        expirationMonth = kwargs.get('exp_month')
-        expirationYear = kwargs.get('exp_year')
-        cvNumber = kwargs.get('cvv')
+        accountNumber = card_details.get('account_number')
+        expirationMonth = card_details.get('exp_month')
+        expirationYear = card_details.get('exp_year')
+        cvNumber = card_details.get('cvv')
 
         # if not all([fullName, accountNumber, expirationMonth, expirationYear, cvNumber]):
         #     raise CyberScourceError('', 'Not all credit card info was gathered')
@@ -207,46 +200,7 @@ class Processor(object):
         self.card.cvIndicator = 1
         self.card.cvNumber = cvNumber
 
-    def set_check_info(self, **kwargs):
-        '''
-            fullName = None
-            accountNumber = None
-            accountType = None
-            bankTransitNumber = None
-            checkNumber = None
-            secCode = None
-            accountEncoderID = None
-            authenticateID = None
-            paymentInfo = None
-        '''
-
-        # accountType
-        # C: Checking
-        # S: Savings (U.S. dollars only)
-        # X: Corporate checking (U.S. dollars only)
-
-        # Test stuff
-        kwargs['full_name'] = 'Colin Fletcher'
-        kwargs['account_number'] = '12345678'
-        kwargs['account_type'] = 'C'
-        kwargs['bank_transit_number'] = '112200439'
-        kwargs['check_numbner'] = '123'
-
-        fullName = kwargs.get('full_name')
-        accountNumber = kwargs.get('account_number')
-        accountType = kwargs.get('account_type')
-        bankTransitNumber = kwargs.get('bank_transit_number')
-        checkNumber = kwargs.get('check_numbner')
-
-        self.check = self.client.factory.create('ns0:Check')
-
-        self.check.fullName = fullName
-        self.check.accountNumber = accountNumber
-        self.check.accountType = accountType
-        self.check.bankTransitNumber = bankTransitNumber
-        self.check.checkNumber = checkNumber
-
-    def billing_info(self, **kwargs):
+    def billing_info(self, details):
         '''
             title = None
             firstName = None
@@ -285,33 +239,18 @@ class Processor(object):
             language = None
             name = None
         '''
-
-        # Test Stuff
-        kwargs['title'] = 'Mr.'
-        kwargs['first_name'] = 'Colin'
-        kwargs['last_name'] = 'Fletcher'
-        kwargs['address1'] = '3800 Quick Hill Rd'
-        kwargs['address2'] = 'Bldg 1-100'
-        kwargs['city'] = 'Austin'
-        kwargs['state'] = 'TX'
-        kwargs['zipcode'] = '78728'
-        kwargs['country'] = 'US'
-        kwargs['cid'] = '0123456789'
-        kwargs['email'] = 'random@example.com'
-        kwargs['phone_number'] = '5127050808'
-
-        title = kwargs.get('title')
-        firstName = kwargs.get('first_name')
-        lastName = kwargs.get('last_name')
-        street1 = kwargs.get('address1')
-        street2 = kwargs.get('address2')
-        city = kwargs.get('city')
-        state = kwargs.get('state')
-        postalCode = kwargs.get('zipcode')
-        country = kwargs.get('country', 'US')
-        customerID = kwargs.get('cid')
-        email = kwargs.get('email')
-        phoneNumber = kwargs.get('phone_number')
+        title = details.get('title')
+        firstName = details.get('first_name')
+        lastName = details.get('last_name')
+        street1 = details.get('address1')
+        street2 = details.get('address2')
+        city = details.get('city')
+        state = details.get('state')
+        postalCode = details.get('zipcode')
+        country = details.get('country', 'US')
+        customerID = details.get('cid')
+        email = details.get('email')
+        phoneNumber = details.get('phone_number')
 
         self.bill_to = self.client.factory.create('ns0:BillTo')
 
@@ -330,32 +269,18 @@ class Processor(object):
 
     def check_response_for_cybersource_error(self):
         if self.response.reasonCode != 100:
-            print self.response
+            print(self.response)
             raise CyberScourceError(self.response.reasonCode,
-                CYBERSOURCE_RESPONSES.get(str(self.response.reasonCode), 'Unknown Failure'))
+                                    CYBERSOURCE_RESPONSES.get(str(self.response.reasonCode), 'Unknown Failure'))
 
-    def do_credit_card_test(self):
+    def charge_card(self, payload):
         self.check = None
         self.create_headers()
-        self.payment_amount()
-        self.set_card_info()
-        self.billing_info()
+        self.payment_amount(payload.get("charge"))
+        self.set_card_info(payload.get("card"))
+        self.billing_info(payload.get("billing"))
 
         self.run_transaction()
 
         self.check_response_for_cybersource_error()
-
-        print self.response
-
-    def do_ach_test(self):
-        self.card = None
-        self.create_headers()
-        self.payment_amount()
-        self.set_check_info()
-        self.billing_info()
-
-        self.run_transaction()
-
-        self.check_response_for_cybersource_error()
-
-        print self.response
+        print(self.response)
