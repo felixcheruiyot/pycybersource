@@ -3,7 +3,6 @@ from cybersource.processor import *
 password = 'PASSWORD_STR'
 merchantid = 'intasend_sandbox'
 
-
 payload = {"card": {}, "charge": {}, "billing": {}}
 payload["card"]['account_number'] = '4242424242424242'
 payload["card"]['exp_month'] = '05'
