@@ -1,6 +1,6 @@
 from cybersource.processor import *
 
-password = '+EXgw4YILzxiUgqir2nKPfTxCk+Ek6Sh1HbnwF1zOk6+L8k4VA2QPli91f9sos38lkfoPjWnlBh1GWT1EPPGdEl6BYwgxlct7RYwbQxbmsXypqrr3xW9v0ZDp/pc9G+AIAzD/TkC/WYz0h88QsYUok67kOY8ceFhjURWmAI5mVw+zYH1/rJ8O6Kgef4zn8O+nivMLRUtq5qoAsOqF/rhfuRRVM3Fi6EjTctrLHXP7Dhm2D+L2vHCpRfEp45H9UlNRL7m8Ay9EBO9DJF8BebAT1Tc5k1lQ+Lj0m2YsbtvcU6p5z9d90BbecrudhFLSDI0WKloLB2ixyKL2Cd/p5m4iA=='
+password = 'PASSWORD_STR'
 merchantid = 'intasend_sandbox'
 
 

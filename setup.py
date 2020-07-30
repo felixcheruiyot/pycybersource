@@ -16,20 +16,20 @@ CLASSIFIERS = [
 
 KEYWORDS = 'cybersource soap suds wrapper'
 
-setup(name='cybersource',
+setup(name='python3-cybersource',
       version=cybersource.VERSION,
-      description='Cyber Source API wrapper.',
+      description='Cyber Source API wrapper for Python3.',
       long_description=LONG_DESCRIPTION,
-      author='Colin Fletcher',
-      author_email='cfletcher1856@gmail.com',
-      url='https://github.com/cfletcher1856/python-cybersource/',
-      download_url='http://pypi.python.org/pypi/cybersource/',
+      author='Felix Cheruiyot',
+      author_email='felix@intasend.com',
+      url='https://github.com/felixcheruiyot/pycybersource/',
+      download_url='http://pypi.python.org/pypi/python3-cybersource/',
       packages=['cybersource'],
       package_dir={'cybersource': 'cybersource'},
       platforms=['Platform Independent'],
       license='BSD',
       classifiers=CLASSIFIERS,
       keywords=KEYWORDS,
-      requires=['suds'],
-      install_requires=['suds'],
-)
+      requires=['client==0.0.1', "suds-py3==1.4.1.0"],
+      install_requires=['client==0.0.1', "suds-py3==1.4.1.0"],
+      )
