@@ -30,6 +30,5 @@ setup(name='python3-cybersource',
       license='BSD',
       classifiers=CLASSIFIERS,
       keywords=KEYWORDS,
-      requires=['client', "suds-py3"],
-      install_requires=['client', "suds-py3"],
+      install_requires=['client==0.0.1', 'suds-py3==1.4.1.0'],
       )
