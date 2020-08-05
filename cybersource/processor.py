@@ -4,6 +4,7 @@ import suds
 from suds.client import Client
 from suds.sax.attribute import Attribute
 from suds.sax.element import Element
+import json
 
 import logging
 logging.basicConfig(level=logging.INFO)
@@ -111,7 +112,7 @@ class Processor(object):
 
         self.client.set_options(soapheaders=security)
 
-    def run_transaction(self):
+    def run_transaction(self, ignore_avs):
         try:
 
             options = dict(
@@ -128,10 +129,12 @@ class Processor(object):
                 options['card'] = self.card
                 options['ccAuthService'] = ccAuthService
 
-                businessRules = self.client.factory.create('ns0:businessRules')
-                businessRules.ignoreAVSResult = True
-                businessRules.ignoreCVResult = True
-                options["businessRules"] = businessRules
+                if ignore_avs:
+                    businessRules = self.client.factory.create(
+                        'ns0:businessRules')
+                    businessRules.ignoreAVSResult = True
+                    businessRules.ignoreCVResult = True
+                    options["businessRules"] = businessRules
 
             self.response = self.client.service.runTransaction(**options)
         except suds.WebFault:
@@ -273,14 +276,36 @@ class Processor(object):
             raise CyberSourceError(self.response.reasonCode,
                                    CYBERSOURCE_RESPONSES.get(str(self.response.reasonCode), 'Unknown Failure'))
 
-    def charge_card(self, payload):
+    def charge_card(self, payload, ignore_avs=True):
+        """
+        Charge card action
+        """
         self.check = None
         self.create_headers()
         self.payment_amount(payload.get("charge"))
         self.set_card_info(payload.get("card"))
         self.billing_info(payload.get("billing"))
 
-        self.run_transaction()
+        self.run_transaction(ignore_avs)
 
         self.check_response_for_cybersource_error()
-        return self.response
+        return self.obj_to_dict(self.response)
+
+    def obj_to_dict(self, obj):
+        """
+        Read objects and return dictionary version of the same
+        """
+        if not hasattr(obj, "__dict__"):
+            return obj
+        result = {}
+        for key, val in obj.__dict__.items():
+            if key.startswith("_"):
+                continue
+            element = []
+            if isinstance(val, list):
+                for item in val:
+                    element.append(self.obj_to_dict(item))
+            else:
+                element = self.obj_to_dict(val)
+            result[key] = element
+        return result

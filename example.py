@@ -1,7 +1,7 @@
 from cybersource.processor import *
 
-password = 'PASSWORD_STR'
-merchantid = 'intasend_sandbox'
+password = '<YOUR-PASSWORD>'
+merchantid = '<YOUR-MERCHANT-ID>'
 
 payload = {"card": {}, "charge": {}, "billing": {}}
 payload["card"]['account_number'] = '4242424242424242'
@@ -30,4 +30,32 @@ if __name__ == "__main__":
     p = Processor(merchantid, password, test=True)
     resp = p.charge_card(payload)
     print(f"Response>>>: {resp}")
-    print(f"Decision: {resp.decision}")
+
+    # Expected response example of returned successful message
+    # {
+    #     'merchantReferenceCode': '7',
+    #     'requestID': '5965984446106112304012',
+    #     'decision': 'ACCEPT',
+    #     'reasonCode': 100,
+    #     'requestToken': 'Axj/7wSTQ2qqjJfcayOMABEg3cM3Dhy1ZtIkGw5Z2myiOEcAnbQFRHCOATtukDp0IDZhk0ky9GLAdmiDCTQ2qqjJfcayOMAAGAYA',
+    #     'purchaseTotals': {
+    #         'currency': 'USD'
+    #     },
+    #     'ccAuthReply': {
+    #         'reasonCode': 100,
+    #         'amount': '100.50',
+    #         'authorizationCode': '888888',
+    #         'avsCode': '1',
+    #         'cvCode': None,
+    #         'authorizedDateTime': '2020-08-05T03:34:04Z',
+    #         'processorResponse': '100',
+    #         'reconciliationID': '783889534DAX93Z6',
+    #         'paymentNetworkTransactionID': '123456789619999'
+    #     },
+    #     'card': {
+    #         'cardType': '001'
+    #     },
+    #     'pos': {
+    #         'terminalID': '111111'
+    #     }
+    # }
