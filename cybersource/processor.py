@@ -129,12 +129,10 @@ class Processor(object):
                 options['card'] = self.card
                 options['ccAuthService'] = ccAuthService
 
-                if ignore_avs:
-                    businessRules = self.client.factory.create(
-                        'ns0:businessRules')
-                    businessRules.ignoreAVSResult = True
-                    businessRules.ignoreCVResult = True
-                    options["businessRules"] = businessRules
+                businessRules = self.client.factory.create(
+                    'ns0:businessRules')
+                businessRules.ignoreAVSResult = ignore_avs
+                options["businessRules"] = businessRules
 
             self.response = self.client.service.runTransaction(**options)
         except suds.WebFault:
