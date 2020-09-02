@@ -112,7 +112,7 @@ class Processor(object):
 
         self.client.set_options(soapheaders=security)
 
-    def run_transaction(self, ignore_avs, reference, trans_type="authorize"):
+    def run_transaction(self, ignore_avs, reference):
         try:
             ounce = randrange(0, 100)
             reference = f"{reference}_{ounce}"
@@ -125,23 +125,15 @@ class Processor(object):
             )
 
             if getattr(self, 'card', None):
-                if trans_type == "authorize":
-                    ccAuthService = self.client.factory.create(
-                        'ns0:ccAuthService')
-                    ccAuthService._run = 'true'
-                    options['ccAuthService'] = ccAuthService
+                ccAuthService = self.client.factory.create(
+                    'ns0:ccAuthService')
+                ccAuthService._run = 'true'
+                options['ccAuthService'] = ccAuthService
 
-                if trans_type == "sale":
-                    ccSaleService = self.client.factory.create(
-                        'ns0:ccSaleService')
-                    ccSaleService._run = 'true'
-                    options['ccSaleService'] = ccSaleService
-
-                if trans_type == "capture":
-                    ccCaptureService = self.client.factory.create(
-                        'ns0:ccCaptureService')
-                    ccCaptureService._run = 'true'
-                    options['ccCaptureService'] = ccCaptureService
+                ccCaptureService = self.client.factory.create(
+                    'ns0:ccCaptureService')
+                ccCaptureService._run = 'true'
+                options['ccCaptureService'] = ccCaptureService
 
                 options['card'] = self.card
                 businessRules = self.client.factory.create(
@@ -310,7 +302,7 @@ class Processor(object):
         self.set_card_info(payload.get("card"))
         self.billing_info(payload.get("billing"))
 
-        self.run_transaction(ignore_avs, reference, "sale")
+        self.run_transaction(ignore_avs, reference)
 
         self.check_response_for_cybersource_error()
         return self.obj_to_dict(self.response)
