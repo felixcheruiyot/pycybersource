@@ -112,23 +112,38 @@ class Processor(object):
 
         self.client.set_options(soapheaders=security)
 
-    def run_transaction(self, ignore_avs):
+    def run_transaction(self, ignore_avs, reference, trans_type="authorize"):
         try:
-
+            ounce = randrange(0, 100)
+            reference = f"{reference}_{ounce}"
             options = dict(
                 merchantID=self.merchantid,
-                merchantReferenceCode=randrange(0, 100),
+                merchantReferenceCode=reference,
                 billTo=self.bill_to,
                 purchaseTotals=self.payment,
+                item=self.item
             )
 
             if getattr(self, 'card', None):
-                ccAuthService = self.client.factory.create('ns0:ccAuthService')
-                ccAuthService._run = 'true'
+                if trans_type == "authorize":
+                    ccAuthService = self.client.factory.create(
+                        'ns0:ccAuthService')
+                    ccAuthService._run = 'true'
+                    options['ccAuthService'] = ccAuthService
+
+                if trans_type == "sale":
+                    ccSaleService = self.client.factory.create(
+                        'ns0:ccSaleService')
+                    ccSaleService._run = 'true'
+                    options['ccSaleService'] = ccSaleService
+
+                if trans_type == "capture":
+                    ccCaptureService = self.client.factory.create(
+                        'ns0:ccCaptureService')
+                    ccCaptureService._run = 'true'
+                    options['ccCaptureService'] = ccCaptureService
 
                 options['card'] = self.card
-                options['ccAuthService'] = ccAuthService
-
                 businessRules = self.client.factory.create(
                     'ns0:businessRules')
                 businessRules.ignoreAVSResult = ignore_avs
@@ -137,6 +152,14 @@ class Processor(object):
             self.response = self.client.service.runTransaction(**options)
         except suds.WebFault:
             raise SchemaValidationError()
+
+    def sales_items(self, charge, reference):
+        self.item = self.client.factory.create('ns0:item')
+        self.item._id = 0
+        self.item.unitPrice = charge.get('total')
+        self.item.quantity = 1
+        self.item.referenceData_1_number = reference
+        self.item.referenceData_1_code = "ISRef"
 
     def payment_amount(self, charge):
         '''
@@ -162,6 +185,7 @@ class Processor(object):
             additionalAmount4 = None
             serviceFeeAmount = None
         '''
+
         currency = charge.get('currency')
         grandTotalAmount = charge.get('total')
 
@@ -278,13 +302,15 @@ class Processor(object):
         """
         Charge card action
         """
+        reference = payload.get('reference')
         self.check = None
         self.create_headers()
         self.payment_amount(payload.get("charge"))
+        self.sales_items(payload.get("charge"), reference)
         self.set_card_info(payload.get("card"))
         self.billing_info(payload.get("billing"))
 
-        self.run_transaction(ignore_avs)
+        self.run_transaction(ignore_avs, reference, "sale")
 
         self.check_response_for_cybersource_error()
         return self.obj_to_dict(self.response)
