@@ -112,7 +112,7 @@ class Processor(object):
 
         self.client.set_options(soapheaders=security)
 
-    def run_transaction(self, ignore_avs, reference):
+    def run_transaction(self, ignore_avs, reference, xid):
         try:
             ounce = randrange(0, 100)
             reference = f"{reference}_{ounce}"
@@ -128,6 +128,10 @@ class Processor(object):
                 ccAuthService = self.client.factory.create(
                     'ns0:ccAuthService')
                 ccAuthService._run = 'true'
+                ccAuthService.xid = xid
+                # ccAuthService.paSpecificationVersion = "1.0.2"
+                # ccAuthService.directoryServerTransactionID = ""
+                ccAuthService.commerceIndicator = "internet"
                 options['ccAuthService'] = ccAuthService
 
                 ccCaptureService = self.client.factory.create(
@@ -290,7 +294,7 @@ class Processor(object):
             raise CyberSourceError(self.response.reasonCode,
                                    CYBERSOURCE_RESPONSES.get(str(self.response.reasonCode), 'Unknown Failure'))
 
-    def charge_card(self, payload, ignore_avs=True):
+    def charge_card(self, payload, xid, ignore_avs=True):
         """
         Charge card action
         """
@@ -302,7 +306,7 @@ class Processor(object):
         self.set_card_info(payload.get("card"))
         self.billing_info(payload.get("billing"))
 
-        self.run_transaction(ignore_avs, reference)
+        self.run_transaction(ignore_avs, reference, xid)
 
         self.check_response_for_cybersource_error()
         return self.obj_to_dict(self.response)
