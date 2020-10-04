@@ -131,7 +131,7 @@ class Processor(object):
                 ccAuthService.xid = xid
                 # ccAuthService.paSpecificationVersion = "1.0.2"
                 # ccAuthService.directoryServerTransactionID = ""
-                ccAuthService.commerceIndicator = "internet"
+                # ccAuthService.commerceIndicator = "internet"
                 options['ccAuthService'] = ccAuthService
 
                 ccCaptureService = self.client.factory.create(
