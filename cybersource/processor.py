@@ -112,6 +112,26 @@ class Processor(object):
 
         self.client.set_options(soapheaders=security)
 
+    def check_enrollment(self, reference, xid):
+        options = dict(
+            merchantID=self.merchantid,
+            merchantReferenceCode=reference,
+            billTo=self.bill_to,
+            purchaseTotals=self.payment,
+            item=self.item
+        )
+        payerAuthEnrollService = self.client.factory.create(
+            'ns0:payerAuthEnrollService')
+        payerAuthEnrollService._run = "true"
+        payerAuthEnrollService.authenticationTransactionID = xid
+        return payerAuthEnrollService
+
+        options['payerAuthEnrollService'] = payerAuthEnrollService
+        options['card'] = self.card
+
+        response = self.client.service.runTransaction(**options)
+        return response
+
     def run_transaction(self, ignore_avs, reference, xid):
         try:
             ounce = randrange(0, 100)
@@ -128,10 +148,6 @@ class Processor(object):
                 ccAuthService = self.client.factory.create(
                     'ns0:ccAuthService')
                 ccAuthService._run = 'true'
-                ccAuthService.xid = xid
-                # ccAuthService.paSpecificationVersion = "1.0.2"
-                # ccAuthService.directoryServerTransactionID = ""
-                # ccAuthService.commerceIndicator = "internet"
                 options['ccAuthService'] = ccAuthService
 
                 ccCaptureService = self.client.factory.create(
@@ -144,6 +160,9 @@ class Processor(object):
                     'ns0:businessRules')
                 businessRules.ignoreAVSResult = ignore_avs
                 options["businessRules"] = businessRules
+
+                options['payerAuthEnrollService'] = self.check_enrollment(
+                    reference, xid)
 
             self.response = self.client.service.runTransaction(**options)
         except suds.WebFault:
