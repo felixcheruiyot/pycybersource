@@ -42,6 +42,7 @@ CYBERSOURCE_RESPONSES = {
     '101': 'The request is missing one or more required fields.',
     '102': 'One or more fields in the request contains invalid data.',
     '104': 'The merchantReferenceCode sent with this authorization request matches the merchantReferenceCode of another authorization request that you sent in the last 15 minutes.',
+    '110': 'Only a partial amount was approved.',
     '150': 'Error: General system failure. ',
     '151': 'Error: The request was received but there was a server timeout. This error does not include timeouts between the client and the server.',
     '152': 'Error: The request was received, but a service did not finish running in time.',
@@ -52,9 +53,13 @@ CYBERSOURCE_RESPONSES = {
     '205': 'Stolen or lost card.',
     '207': 'Issuing bank unavailable.',
     '208': 'Inactive card or card not authorized for card-not-present transactions.',
+    '209': 'Invalid card details.',
+    '200': 'The authorization request was approved by the issuing bank but declined by processor because it did not pass the Address Verification System (AVS) check. ',
     '210': 'The card has reached the credit limit. ',
     '211': 'Invalid card verification number.',
+    '213': 'We cannot process the transaction. Account is in fraud watch status. Please contact your bank.',
     '221': 'The customer matched an entry on the processor\'s negative file.',
+    '230': 'The authorization request was approved by the issuing bank but declined by CyberSource because it did not pass the CVN check.',
     '231': 'Invalid account number.',
     '232': 'The card type is not accepted by the payment processor.',
     '233': 'General decline by the processor.',
@@ -70,7 +75,14 @@ CYBERSOURCE_RESPONSES = {
     '246': 'The capture or credit is not voidable because the capture or credit information has already been submitted to your processor. Or, you requested a void for a type of transaction that cannot be voided. This reason code applies only if you are processing a void through the API.',
     '247': 'You requested a credit for a capture that was previously voided. This reason code applies only if you are processing a void through the API.',
     '250': 'Error: The request was received, but there was a timeout at the payment processor.',
-    '520': 'The authorization request was approved by the issuing bank but declined by CyberSource based on your Smart Authorization settings.',
+    '251': 'The customer has exceeded the debit cards limit on frequency of use, number of PIN entry tries, or maximum amount for the day. Request a different card or other form of payment.',
+    '252': 'The card cannot be used for PINless debit transactions. Request a different card or other form of payment.',
+    '254': 'Stand-alone credits are not allowed.',
+    '262': 'The request is still in progress. Wait for a response from processor.',
+    '263': 'Mass transit transaction (MTT) was declined. When the transaction amount is less than the transit chargeback threshold, and the other mandated checks are performed, you can capture the authorization. Your acquirer can provide information about mandated checks and transit chargeback thresholds. ',
+    '478': 'Strong customer authentication (SCA) is required for this transaction.',
+    '481': 'Address verification failed for card. Please contact your issuing bank to enable 3D support.',
+    '520': 'The authorization request was approved by the issuing bank but declined by processor based on your Smart Authorization settings.',
 }
 
 
@@ -168,11 +180,12 @@ class Processor(object):
         except suds.WebFault:
             raise SchemaValidationError()
 
-    def sales_items(self, charge, reference):
+    def sales_items(self, charge, reference, product_name="Service Fee"):
         self.item = self.client.factory.create('ns0:item')
         self.item._id = 0
         self.item.unitPrice = charge.get('total')
         self.item.quantity = 1
+        self.item.productName = product_name
         self.item.referenceData_1_number = reference
         self.item.referenceData_1_code = "ISRef"
 
@@ -318,10 +331,11 @@ class Processor(object):
         Charge card action
         """
         reference = payload.get('reference')
+        product_name = payload.get("product_name", "Service Fee")
         self.check = None
         self.create_headers()
         self.payment_amount(payload.get("charge"))
-        self.sales_items(payload.get("charge"), reference)
+        self.sales_items(payload.get("charge"), reference, product_name)
         self.set_card_info(payload.get("card"))
         self.billing_info(payload.get("billing"))
 
