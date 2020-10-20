@@ -82,7 +82,7 @@ CYBERSOURCE_RESPONSES = {
     '263': 'Mass transit transaction (MTT) was declined. When the transaction amount is less than the transit chargeback threshold, and the other mandated checks are performed, you can capture the authorization. Your acquirer can provide information about mandated checks and transit chargeback thresholds. ',
     '476': 'We could not authenticated your request',
     '478': 'Strong customer authentication (SCA) is required for this transaction',
-    '481': 'Address verification failed for card. Please contact your issuing bank to enable 3D support',
+    '481': 'Payment authentication failed. Please contact your issuing bank to enable 3D support for your card if not available.',
     '520': 'The authorization request was approved by the issuing bank but declined by processor based on your Smart Authorization settings',
 }
 
