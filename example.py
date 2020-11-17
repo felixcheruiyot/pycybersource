@@ -1,7 +1,7 @@
 from cybersource.processor import *
 
-merchantid = 'ecomr005134'
-password = 'f5atiK3mC734nUTTR9mUEZX0QuEtvI0nVXjQtUSG9KQWI8yUWktTppATkD/5/E+Y6S0DD0I9GK9tCNk3dZcI1/80tvgxSUFurLwEbp4/guEiXM5uNgSJO7SZXz8COmD9sujgfVCpX8f1COoLCbNwBaa5GkgyRvbePnvWN4J/BgsljFczjrGom0LOL/aAGpN9ycCvedSVYP9T/yr19CMPFo/spdc2KuwjJPdTmkHYmuub/FJqBXotoa/oHnJdGZu/xl/2XK9pVVBaTagJ++/AtFWzfZDCJq6hyqp7+jH5ItJdhVmCB9IIRljljLYhZ60qWvAgzZa88NfUozR9uiDZSw=='
+merchantid = ''
+password = ''
 
 payload = {"card": {}, "charge": {},
            "billing": {}, "reference": "INTASEND_ebaed2", "product_name": "Product 1"}
