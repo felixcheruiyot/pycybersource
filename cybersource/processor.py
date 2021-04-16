@@ -40,7 +40,7 @@ class SchemaValidationError(CyberSourceBaseException):
 CYBERSOURCE_RESPONSES = {
     '100': 'Successful transaction',
     '101': 'The request is missing one or more required fields',
-    '102': 'One or more fields in the request contains invalid data. Please provide valid card details, address, city, state, country, and zipcode',
+    '102': 'One or more fields in the request contains invalid data. Please ensure that the country, address, city, state, country, and zipcode fields are valid for the card',
     '104': 'The merchantReferenceCode sent with this authorization request matches the merchantReferenceCode of another authorization request that you sent in the last 15 minutes',
     '110': 'Only a partial amount was approved',
     '150': 'We could not complete your request because of a general system failure. Please contact your bank to enable online payments using the card or try with a different card',
