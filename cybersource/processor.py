@@ -43,7 +43,7 @@ CYBERSOURCE_RESPONSES = {
     '102': 'One or more fields in the request contains invalid data. Please ensure that the country, address, city, state, country, and zipcode fields are valid for the card',
     '104': 'The merchantReferenceCode sent with this authorization request matches the merchantReferenceCode of another authorization request that you sent in the last 15 minutes',
     '110': 'Only a partial amount was approved',
-    '150': 'We could not complete your request because of a general system failure. Please contact your bank to enable online payments using the card or try with a different card',
+    '150': 'We could not complete your request because of a general system failure',
     '151': 'Error: The request was received but there was a server timeout. This error does not include timeouts between the client and the server',
     '152': 'Error: The request was received, but a service did not finish running in time',
     '201': 'The issuing bank has questions about the request. You do not receive an authorization code in the reply message, but you might receive one verbally by calling the processor',
