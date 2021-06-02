@@ -8,7 +8,7 @@ import json
 
 import logging
 logging.basicConfig(level=logging.INFO)
-logging.getLogger('suds.client').setLevel(logging.DEBUG)
+logging.getLogger('suds.client').setLevel(logging.ERROR)
 
 
 class CyberSourceBaseException(Exception):
