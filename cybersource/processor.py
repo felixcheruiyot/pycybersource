@@ -1,10 +1,7 @@
-from random import randrange
-
 import suds
 from suds.client import Client
 from suds.sax.attribute import Attribute
 from suds.sax.element import Element
-import json
 
 import logging
 logging.basicConfig(level=logging.INFO)
@@ -40,10 +37,10 @@ class SchemaValidationError(CyberSourceBaseException):
 CYBERSOURCE_RESPONSES = {
     '100': 'Successful transaction',
     '101': 'The request is missing one or more required fields',
-    '102': 'One or more fields in the request contains invalid data. Please ensure that the country, address, city, state, country, and zipcode fields are valid for the card',
+    '102': 'One or more fields in the request contains invalid data',
     '104': 'The merchantReferenceCode sent with this authorization request matches the merchantReferenceCode of another authorization request that you sent in the last 15 minutes',
     '110': 'Only a partial amount was approved',
-    '150': 'We could not complete your request because of a general system failure',
+    '150': 'We could not complete your request because of a general system failure. Please contact your bank to enable online payments using the card or try with a different card',
     '151': 'Error: The request was received but there was a server timeout. This error does not include timeouts between the client and the server',
     '152': 'Error: The request was received, but a service did not finish running in time',
     '201': 'The issuing bank has questions about the request. You do not receive an authorization code in the reply message, but you might receive one verbally by calling the processor',
@@ -82,18 +79,16 @@ CYBERSOURCE_RESPONSES = {
     '263': 'Mass transit transaction (MTT) was declined. When the transaction amount is less than the transit chargeback threshold, and the other mandated checks are performed, you can capture the authorization. Your acquirer can provide information about mandated checks and transit chargeback thresholds. ',
     '476': 'We could not authenticate your request. Please retry again and ensure your enter the right one-time password sent by your bank. If you have any issue receiving this password, please contact your issuing bank',
     '478': 'Strong customer authentication (SCA) is required for this transaction',
-    '481': 'Payment authorization failed',
+    '481': 'Payment authentication failed. Please contact your issuing bank to enable 3D support for your card if not yet available',
     '520': 'The authorization request was approved by the issuing bank but declined by processor based on your Smart Authorization settings',
 }
 
-
 class Processor(object):
 
-    def __init__(self, merchantid, password, test=False):
-        # Test server
-        service_url = 'https://ics2wsa.ic3.com/commerce/1.x/transactionProcessor/CyberSourceTransaction_1.166.wsdl'
+    def __init__(self, merchantid, password, certificate=None, private_key=None, test=False):
+        service_url = 'https://ics2wsa.ic3.com/commerce/1.x/transactionProcessor/CyberSourceTransaction_1.181.wsdl'
         if test:
-            service_url = 'https://ics2wstesta.ic3.com/commerce/1.x/transactionProcessor/CyberSourceTransaction_1.166.wsdl'
+            service_url = 'https://ics2wstesta.ic3.com/commerce/1.x/transactionProcessor/CyberSourceTransaction_1.181.wsdl'
         self.client = Client(service_url)
 
         self.password = password
@@ -125,62 +120,6 @@ class Processor(object):
 
         self.client.set_options(soapheaders=security)
 
-    def check_enrollment(self, reference, xid):
-        options = dict(
-            merchantID=self.merchantid,
-            merchantReferenceCode=reference,
-            billTo=self.bill_to,
-            purchaseTotals=self.payment,
-            item=self.item
-        )
-        payerAuthEnrollService = self.client.factory.create(
-            'ns0:payerAuthEnrollService')
-        payerAuthEnrollService._run = "true"
-        payerAuthEnrollService.authenticationTransactionID = xid
-        return payerAuthEnrollService
-
-        options['payerAuthEnrollService'] = payerAuthEnrollService
-        options['card'] = self.card
-
-        response = self.client.service.runTransaction(**options)
-        return response
-
-    def run_transaction(self, ignore_avs, reference, xid):
-        try:
-            ounce = randrange(0, 100)
-            reference = f"{reference}_{ounce}"
-            options = dict(
-                merchantID=self.merchantid,
-                merchantReferenceCode=reference,
-                billTo=self.bill_to,
-                purchaseTotals=self.payment,
-                item=self.item
-            )
-
-            if getattr(self, 'card', None):
-                ccAuthService = self.client.factory.create(
-                    'ns0:ccAuthService')
-                ccAuthService._run = 'true'
-                options['ccAuthService'] = ccAuthService
-
-                ccCaptureService = self.client.factory.create(
-                    'ns0:ccCaptureService')
-                ccCaptureService._run = 'true'
-                options['ccCaptureService'] = ccCaptureService
-
-                options['card'] = self.card
-                businessRules = self.client.factory.create(
-                    'ns0:businessRules')
-                businessRules.ignoreAVSResult = ignore_avs
-                options["businessRules"] = businessRules
-
-                options['payerAuthEnrollService'] = self.check_enrollment(
-                    reference, xid)
-
-            self.response = self.client.service.runTransaction(**options)
-        except suds.WebFault:
-            raise SchemaValidationError()
-
     def sales_items(self, charge, reference, product_name="Service Fee"):
         self.item = self.client.factory.create('ns0:item')
         self.item._id = 0
@@ -190,7 +129,7 @@ class Processor(object):
         self.item.referenceData_1_number = reference
         self.item.referenceData_1_code = "ISRef"
 
-    def payment_amount(self, charge):
+    def set_payment_amount(self, charge):
         '''
             currency = None
             discountAmount = None
@@ -252,8 +191,6 @@ class Processor(object):
         self.card.accountNumber = accountNumber
         self.card.expirationMonth = expirationMonth
         self.card.expirationYear = expirationYear
-        self.card.cvIndicator = 1
-        self.card.cvNumber = cvNumber
 
     def billing_info(self, details):
         '''
@@ -322,25 +259,141 @@ class Processor(object):
         self.bill_to.email = email
         self.bill_to.phoneNumber = phoneNumber
 
-    def check_response_for_cybersource_error(self):
-        if self.response.reasonCode != 100:
+    def check_response_for_cybersource_error(self, enrollment_check=False):
+        if self.response.reasonCode != 100 and not enrollment_check:
+            raise CyberSourceError(self.response.reasonCode,
+                                   CYBERSOURCE_RESPONSES.get(str(self.response.reasonCode), 'Unknown Failure'))
+        if enrollment_check and self.response.reasonCode not in [100, 475]:
             raise CyberSourceError(self.response.reasonCode,
                                    CYBERSOURCE_RESPONSES.get(str(self.response.reasonCode), 'Unknown Failure'))
 
-    def charge_card(self, payload, xid, ignore_avs=True):
-        """
-        Charge card action
-        """
+    def set_default_options(self, payload):
         reference = payload.get('reference')
-        product_name = payload.get("product_name", "Service Fee")
+        product_name = payload.get("product_name")
         self.check = None
         self.create_headers()
-        self.payment_amount(payload.get("charge"))
+        self.set_card_info(payload.get("card"))
+        self.create_headers()
+        self.set_payment_amount(payload.get("charge"))
         self.sales_items(payload.get("charge"), reference, product_name)
         self.set_card_info(payload.get("card"))
         self.billing_info(payload.get("billing"))
 
-        self.run_transaction(ignore_avs, reference, xid)
+        options = dict(
+            merchantID=self.merchantid,
+            merchantReferenceCode=reference,
+            billTo=self.bill_to,
+            purchaseTotals=self.payment,
+            item=self.item
+        )
+
+        if payload.get("invoiceHeader"):
+            invoiceHeaderPayload = payload.get("invoiceHeader")
+            invoiceHeader = self.client.factory.create('ns0:invoiceHeader')
+            invoiceHeader.submerchantID = invoiceHeaderPayload.get(
+                "submerchantID")
+            invoiceHeader.salesOrganizationID = invoiceHeaderPayload.get(
+                "salesOrganizationID")
+            invoiceHeader.merchantDescriptor = invoiceHeaderPayload.get(
+                "merchantDescriptor")
+            invoiceHeader.merchantDescriptorCity = invoiceHeaderPayload.get(
+                "merchantDescriptorCity")
+            invoiceHeader.merchantDescriptorContact = invoiceHeaderPayload.get(
+                "merchantDescriptorContact")
+            invoiceHeader.merchantDescriptorCountry = invoiceHeaderPayload.get(
+                "merchantDescriptorCountry")
+            invoiceHeader.merchantDescriptorPostalCode = invoiceHeaderPayload.get(
+                "merchantDescriptorPostalCode")
+            invoiceHeader.merchantDescriptorStreet = invoiceHeaderPayload.get(
+                "merchantDescriptorStreet")
+            options["invoiceHeader"] = invoiceHeader
+        if payload.get("mcc"):
+            options["merchantCategoryCode"] = payload.get("mcc")
+        if payload.get("deviceFingerprintID"):
+            options["deviceFingerprintID"] = payload.get("deviceFingerprintID")
+
+        return options
+
+    def payer_authentication_setup(self, payload):
+        """
+        Payer authentication setup - 3Ds 2.x step 1
+        """
+        try:
+            options = self.set_default_options(payload)
+            payerAuthSetupService = self.client.factory.create(
+                'ns0:payerAuthSetupService')
+            payerAuthSetupService._run = "true"
+            options['payerAuthSetupService'] = payerAuthSetupService
+            options['card'] = self.card
+            self.response = self.client.service.runTransaction(**options)
+        except suds.WebFault as ex:
+            raise SchemaValidationError('500', str(ex))
+
+        self.check_response_for_cybersource_error()
+        return self.obj_to_dict(self.response)
+
+    def check_enrollment(self, payload):
+        try:
+            options = self.set_default_options(payload)
+            ccAuthService = self.client.factory.create(
+                'ns0:ccAuthService')
+            if payload.get("aggregatorID"):
+                ccAuthService.aggregatorID = payload.get("aggregatorID")
+            ccAuthService._run = "true"
+            options['ccAuthService'] = ccAuthService
+
+            payerAuthEnrollService = self.client.factory.create(
+                'ns0:payerAuthEnrollService')
+            payerAuthEnrollService.referenceID = payload.get(
+                "payerAuthEnrollRefID")
+            if payload.get("invoiceHeader"):
+                if payload.get("invoiceHeader").get("merchantDescriptor"):
+                    payerAuthEnrollService.merchantName = payload.get(
+                        "invoiceHeader").get("merchantDescriptor")
+            if payload.get("mcc"):
+                payerAuthEnrollService.MCC = payload.get("mcc")
+            payerAuthEnrollService._run = "true"
+            options['payerAuthEnrollService'] = payerAuthEnrollService
+
+            ccCaptureService = self.client.factory.create(
+                'ns0:ccCaptureService')
+            ccCaptureService._run = "true"
+            options['ccCaptureService'] = ccCaptureService
+
+            options['card'] = self.card
+            self.response = self.client.service.runTransaction(**options)
+        except suds.WebFault as ex:
+            raise SchemaValidationError('500', str(ex))
+
+        self.check_response_for_cybersource_error(enrollment_check=True)
+        return self.obj_to_dict(self.response)
+
+    def checkout(self, payload):
+        try:
+            options = self.set_default_options(payload)
+            ccAuthService = self.client.factory.create(
+                'ns0:ccAuthService')
+            if payload.get("aggregatorID"):
+                ccAuthService.aggregatorID = payload.get("aggregatorID")
+            ccAuthService._run = "true"
+            options['ccAuthService'] = ccAuthService
+
+            payerAuthValidateService = self.client.factory.create(
+                'ns0:payerAuthValidateService')
+            payerAuthValidateService.authenticationTransactionID = payload.get(
+                "authenticationTransactionID")
+            payerAuthValidateService._run = "true"
+            options['payerAuthValidateService'] = payerAuthValidateService
+
+            ccCaptureService = self.client.factory.create(
+                'ns0:ccCaptureService')
+            ccCaptureService._run = "true"
+            options['ccCaptureService'] = ccCaptureService
+
+            options['card'] = self.card
+            self.response = self.client.service.runTransaction(**options)
+        except suds.WebFault as ex:
+            raise SchemaValidationError('500', str(ex))
 
         self.check_response_for_cybersource_error()
         return self.obj_to_dict(self.response)
